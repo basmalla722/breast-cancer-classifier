@@ -1,82 +1,83 @@
-# Breast Cancer Classification using Machine Learning
+# Breast Cancer Classification
 
-Detecting whether a breast tumour is **benign** or **malignant** from 30 clinical measurements, built with Python and scikit-learn as part of my transition from web development into machine learning.
+Predicting if a breast tumour is benign or malignant, using the Wisconsin Breast Cancer dataset.
 
-**Result: 98.25% test accuracy** on a model that is simple enough to explain and strong enough to trust.
+This was my first machine learning project. I wanted to try something different from the web
+apps I usually build, so I worked on a real medical dataset instead of a tutorial one.
 
-## Why this project
+**Accuracy: 98.25%** (Logistic Regression)
 
-Web development was my starting point, but I wanted to work with **data** rather than only interfaces — so I took a real clinical dataset, explored it, trained classification models, and measured how well they actually perform. This is my first hands-on end-to-end machine learning pipeline.
+## Dataset
 
-## The dataset
+- 569 samples, 30 features
+- Target: 0 = benign (212), 1 = malignant (357)
+- No missing values
+- From `scikit-learn` (`load_breast_cancer`)
 
-- **Source:** Wisconsin Breast Cancer (Diagnostic) dataset, available through `scikit-learn`
-- **Samples:** 569 · **Features:** 30 (radius, texture, perimeter, area, compactness, concavity, symmetry, fractal dimension, …)
-- **Target:** `0` = benign (212 samples) · `1` = malignant (357 samples)
-- **Missing values:** none
+## What I did
 
-## Approach
+1. Looked at the data with pandas — class counts, statistics, and a correlation heatmap
+2. Split it 80/20 with `stratify` so both sets keep the same class ratio
+3. Scaled the features with `StandardScaler`
+4. Trained 4 models and compared them
+5. Checked the result with a classification report and a confusion matrix
 
-1. **Explore** the data with `pandas` — class distribution, descriptive statistics, and a feature correlation heatmap to find features that carry redundant information
-2. **Split** into 80% training / 20% test set using `stratify`, so the 37/63 class ratio stays identical in both sets
-3. **Scale** features with `StandardScaler` — `mean area` reaches 2501 while `mean smoothness` stays near 0.09, so unscaled data would let a handful of large-magnitude features dominate the model
-4. **Train and compare** four classifiers
-5. **Evaluate** with accuracy, a classification report (precision / recall / F1) and a confusion matrix
+### Why scaling
+
+`mean area` goes up to 2501, but `mean smoothness` is around 0.09. Without scaling the
+bigger numbers would just dominate the model, so I put everything on the same scale first.
 
 ## Results
 
-**Logistic Regression — 98.25% accuracy**
+**Logistic Regression — 98.25%**
 
 ```
               precision    recall   f1-score   support
+
       Benign       0.98      0.98      0.98        42
    Malignant       0.99      0.99      0.99        72
+
     accuracy                           0.98       114
 ```
 
 **Confusion matrix**
 
 ```
-                 predicted
-                 Benign  Malignant
-actual Benign        41          1
-actual Malignant      1         71
+                  predicted
+                  Benign  Malignant
+actual Benign         41          1
+actual Malignant       1         71
 ```
 
-Of 114 test samples the model got **113 right**. The two errors are one in each direction — one benign case flagged as malignant and one malignant case missed. In a screening context that trade-off matters: a missed malignant case is more serious than a false alarm, which is exactly why recall and the confusion matrix deserve more attention than a single accuracy number.
+113 out of 114 correct. One benign case was called malignant, and one malignant case was
+missed.
 
 ## Model comparison
 
 | Model | Accuracy |
 |---|---|
-| Logistic Regression | **98.25%** |
-| Support Vector Machine (RBF) | **98.25%** |
+| Logistic Regression | 98.25% |
+| Support Vector Machine | 98.25% |
 | Random Forest | 95.61% |
-| K-Nearest Neighbours (k=5) | 95.61% |
+| K-Nearest Neighbours | 95.61% |
 
-The finding I did not expect: the two simpler models tied at the top, and Random Forest — usually the strongest default — came last. The gap is small, but the direction is informative. On a small, well-separated dataset like this one, a regularised linear boundary and an SVM with a smooth margin are enough, while a fully grown forest fits noise in the training set. The model with the most capacity was not the model that generalised best.
+Random Forest came last, which I did not expect. The dataset is small and fairly clean, so
+the simpler models did fine and the forest probably overfitted.
 
-## Which features drive the prediction
+## Most important features
 
-| Rank | Feature | Coefficient |
-|---|---|---|
-| 1 | mean compactness | 0.648 |
-| 2 | compactness error | 0.647 |
-| 3 | fractal dimension error | 0.438 |
-| 4 | symmetry error | 0.360 |
-| 5 | texture error | 0.249 |
+| Feature | Coefficient |
+|---|---|
+| mean compactness | 0.648 |
+| compactness error | 0.647 |
+| fractal dimension error | 0.438 |
+| symmetry error | 0.360 |
+| texture error | 0.249 |
 
-All top features are *compactness*, *irregularity* and *error* measures rather than simple size measures — the model is picking up how irregular a cell boundary looks, not how large the tumour is. That matches what the clinical literature on this dataset reports, which is a useful check that the model learned something real rather than something spurious.
+The top features are all about how irregular the cell boundary is, not how big the tumour
+is. That matches what I found reading about this dataset.
 
-## What I learned
-
-- Why feature scaling matters when features live on completely different scales
-- Reading a confusion matrix instead of trusting accuracy alone, and which error direction actually costs more
-- Turning raw coefficients into an interpretable feature ranking instead of treating the model as a black box
-- Using `stratify` so a class-imbalanced split doesn't silently corrupt the evaluation
-- That higher model complexity does not automatically mean better generalisation
-
-## How to run
+## Run it
 
 ```bash
 pip install -r requirements.txt
@@ -85,10 +86,10 @@ python train.py
 
 ## Files
 
-| File | Description |
+| File | What it shows |
 |---|---|
-| `train.py` | Full pipeline: load → explore → split → scale → train → evaluate → compare |
-| `01_correlation_heatmap.png` | Feature correlation matrix |
-| `02_confusion_matrix.png` | Where the model succeeds and fails |
-| `03_feature_importance.png` | Top 10 features by influence |
-| `04_model_comparison.png` | Accuracy across the four models |
+| `train.py` | The whole pipeline |
+| `01_correlation_heatmap.png` | Which features relate to each other |
+| `02_confusion_matrix.png` | Where the model gets it wrong |
+| `03_feature_importance.png` | Top 10 features |
+| `04_model_comparison.png` | The 4 models side by side |
