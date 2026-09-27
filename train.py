@@ -11,10 +11,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 
 sns.set_theme(style="whitegrid")
 
@@ -116,18 +124,72 @@ models = {
 }
 
 print("\n=========== MODEL COMPARISON ===========")
+print(
+    f"{'Model':<24}{'Accuracy':>10}{'Precision':>11}{'Recall':>9}{'F1':>8}{'CV acc':>16}"
+)
+
 results = {}
 for name, clf in models.items():
     clf.fit(X_train_scaled, y_train)
-    score = accuracy_score(y_test, clf.predict(X_test_scaled))
-    results[name] = round(score * 100, 2)
-    print(f"{name}: {round(score * 100, 2)}%")
+    y_pred_model = clf.predict(X_test_scaled)
 
-plt.figure(figsize=(8, 5))
-sns.barplot(x=list(results.values()), y=list(results.keys()), color="#0f9d58")
-plt.xlabel("Accuracy (%)")
-plt.xlim(80, 100)
-plt.title("Model Comparison")
+    acc = accuracy_score(y_test, y_pred_model)
+    # precision/recall/f1 are scored against the malignant class, which is the
+    # one that matters: a miss here is the costly error.
+    prec = precision_score(y_test, y_pred_model, pos_label=1)
+    rec = recall_score(y_test, y_pred_model, pos_label=1)
+    f1 = f1_score(y_test, y_pred_model, pos_label=1)
+
+    # A single 114-row test set moves by 0.88% per sample, so the holdout score
+    # alone is thin evidence. Cross-validation gives a mean with a spread.
+    cv_scores = cross_val_score(
+        make_pipeline(StandardScaler(), clf), X, y, cv=5, scoring="accuracy"
+    )
+
+    results[name] = {
+        "accuracy": acc,
+        "precision": prec,
+        "recall": rec,
+        "f1": f1,
+        "cv_mean": cv_scores.mean(),
+        "cv_std": cv_scores.std(),
+    }
+
+    print(
+        f"{name:<24}{acc * 100:>9.2f}%{prec * 100:>10.2f}%{rec * 100:>8.2f}%"
+        f"{f1 * 100:>7.2f}%{cv_scores.mean() * 100:>10.2f} +/- {cv_scores.std() * 100:.2f}"
+    )
+
+# plot accuracy and CV accuracy side by side
+plot_frame = pd.DataFrame(results).T.sort_values("accuracy")
+
+fig, ax = plt.subplots(figsize=(9, 5))
+index = range(len(plot_frame))
+ax.barh(
+    [i + 0.2 for i in index],
+    plot_frame["accuracy"] * 100,
+    height=0.38,
+    color="#0f9d58",
+    label="holdout test set",
+)
+ax.barh(
+    [i - 0.2 for i in index],
+    plot_frame["cv_mean"] * 100,
+    height=0.38,
+    color="#1155cc",
+    label="5-fold cross-validation",
+)
+ax.set_yticks(list(index))
+ax.set_yticklabels(plot_frame.index)
+ax.set_xlabel("Accuracy (%)")
+ax.set_title("Model Comparison")
+ax.legend()
+
+# scale to the data instead of a fixed 80-100 window, which would clip a model
+# that scores worse than 80% and make the chart lie about it
+lowest = min(plot_frame["accuracy"].min(), plot_frame["cv_mean"].min()) * 100
+ax.set_xlim(max(0, lowest - 4), 100)
+
 plt.tight_layout()
 plt.savefig("04_model_comparison.png", dpi=150)
 plt.close("all")
