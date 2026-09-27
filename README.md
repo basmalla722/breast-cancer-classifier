@@ -54,15 +54,43 @@ missed.
 
 ## Model comparison
 
-| Model | Accuracy |
-|---|---|
-| Logistic Regression | 98.25% |
-| Support Vector Machine | 98.25% |
-| Random Forest | 95.61% |
-| K-Nearest Neighbours | 95.61% |
+Accuracy on its own is a weak way to rank models here: the test set is 114 rows,
+so one sample is worth 0.88%, and it is 42 benign against 72 malignant, which
+means a model can miss malignancies and still look fine. So the table reports
+precision, recall and F1 against the malignant class, plus 5-fold
+cross-validation next to the holdout score.
 
-Random Forest came last, which I did not expect. The dataset is small and fairly clean, so
-the simpler models did fine and the forest probably overfitted.
+| Model | Accuracy | Precision | Recall | F1 | 5-fold CV |
+|---|---|---|---|---|---|
+| Logistic Regression | 98.25% | 98.61% | 98.61% | 98.61% | **98.07% ± 0.65** |
+| Support Vector Machine | 98.25% | 98.61% | 98.61% | 98.61% | 97.36% ± 1.47 |
+| K-Nearest Neighbours | 95.61% | 95.89% | 97.22% | 96.55% | 96.49% ± 0.96 |
+| Random Forest | 95.61% | 95.89% | 97.22% | 96.55% | 95.61% ± 2.28 |
+
+**Logistic Regression is the one I kept**, and the cross-validation is why. On the
+holdout set it ties with the SVM at 98.25%, so that column alone does not separate
+them. Across folds the SVM drops to 97.36% with a spread of 1.47, while Logistic
+Regression holds at 98.07% with a spread of 0.65. The simpler model is also the
+more consistent one here, which is what I would want if this were real.
+
+Random Forest came last, which I did not expect. The dataset is small and fairly
+clean, so the simpler models did fine and the forest probably overfitted — note
+its ± 2.28 spread, the widest of the four.
+
+## Keeping the number honest
+
+`test_model.py` asserts the model still clears a quality floor, so a refactor that
+quietly breaks the split, the scaling or the model itself fails instead of
+producing a plausible-looking number:
+
+```bash
+python test_model.py
+```
+
+The floors sit below what is observed on purpose. Accuracy and F1 are held at 0.95
+and malignant recall at 0.97, which tolerates the single missed malignancy but not
+two. Recall is asserted separately from accuracy on purpose, because a model can
+pass on accuracy while missing the class that actually costs something.
 
 ## Most important features
 
@@ -89,7 +117,9 @@ python train.py
 | File | What it shows |
 |---|---|
 | `train.py` | The whole pipeline |
+| `test_model.py` | Quality guards that fail if accuracy drops |
+| `.github/workflows/ci.yml` | Runs the guards and the pipeline on every push |
 | `01_correlation_heatmap.png` | Which features relate to each other |
 | `02_confusion_matrix.png` | Where the model gets it wrong |
 | `03_feature_importance.png` | Top 10 features |
-| `04_model_comparison.png` | The 4 models side by side |
+| `04_model_comparison.png` | Holdout vs cross-validated accuracy per model |
